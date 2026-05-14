@@ -1,52 +1,28 @@
-name: Deploy CI/CD
+name: Deploy
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches:
+      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+
         with:
-          node-version: "18"
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Build
-        run: |
-          cd frontend
-          npm run build
-
-      - name: Test
-        run: |
-          cd frontend
-          npm test -- --coverage --watchAll=false
-
-  docker:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./frontend
-          push: false
-          tags: simple-cicd-app:latest
-          tags: simple-cicd-app:latest
+          script: |
+            cd ~/deploy
+            git pull origin main
+            docker-compose down
+            docker-compose up --build -d
